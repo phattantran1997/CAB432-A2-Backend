@@ -1,0 +1,98 @@
+---
+Description: Create 1 EC2 (With parameter is list, Output is InstanceID).	
+
+  # Security Group - 
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Security group for EC2 and Redis"
+      GroupName:"n11486546-assignment-securityGroup"
+      VpcId: !Ref VPCId 
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0 
+        - IpProtocol: tcp
+          FromPort: 6379 
+          ToPort: 6379
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: "MySecurityGroupTag"  # Optionally tag the security group with a descriptive name
+  # DynamoDB Table
+  DynamoDBTable:''
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: MyDynamoDBTable
+      AttributeDefinitions:
+        - AttributeName: JobId
+          AttributeType: S # String
+        - AttributeName: UserId
+          AttributeType: S # String
+      KeySchema:
+        - AttributeName: JobId
+          KeyType: HASH # Partition key
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+      Tags:
+        - Key: Name
+          Value: "JobTable"
+
+  # Security Group for DynamoDB (Optional)
+  DynamoDBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Security group for DynamoDB access"
+      VpcId: !Ref VPCId # Replace with your VPC ID if required
+      SecurityGroupIngress:
+        - IpProtocol: -1 # Allow all IP protocols for DynamoDB (usually needed)
+          FromPort: 0
+          ToPort: 65535
+          CidrIp: 0.0.0.0/0 # Replace with specific IPs allowed to access DynamoDB
+  #S3
+  MyS3Bucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: 'my-unique-s3-bucket-name'  # Replace with your desired bucket name
+      AccessControl: Private
+      VersioningConfiguration:
+        Status: Enabled
+      LoggingConfiguration:
+        DestinationBucketName: !Ref MyLoggingBucket
+        LogFilePrefix: 'logs/'
+      Tags:
+        - Key: Name
+          Value: 'MyS3Bucket'
+          
+  MyLoggingBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: 'my-logging-bucket-name'  # Replace with your desired bucket name
+      AccessControl: LogDeliveryWrite
+      Tags:
+        - Key: Name
+          Value: 'MyLoggingBucket'
+
+  MyBucketPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      Bucket: !Ref MyS3Bucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowSSLRequestsOnly
+            Effect: Deny
+            Principal: "*"
+            Action: 's3:*'
+            Resource:
+              - !Sub '${MyS3Bucket.Arn}/*'
+              - !Sub '${MyS3Bucket.Arn}'
+            Condition:
+              Bool:
+                'aws:SecureTransport': 'false'
+Outputs:
+  MyInstance:
+    Description: A reference to the created EC2
+    Value: !Ref MyInstance
